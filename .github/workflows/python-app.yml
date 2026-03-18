@@ -1,0 +1,21 @@
+name: Ejecutar Python
+
+on:
+  push:
+    branches: [ "main" ] # Se ejecutará cada vez que subas cambios a la rama main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # Usa un servidor Linux de GitHub
+
+    steps:
+    - uses: actions/checkout@v3 # Descarga tu código al servidor
+
+    - name: Configurar Python
+      uses: actions/setup-python@v3
+      with:
+        python-version: '3.x' # Usa la versión más reciente de Python
+
+    - name: Ejecutar mi script
+      run: |
+        python main.py
