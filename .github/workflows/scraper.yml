@@ -11,11 +11,11 @@ jobs:
     
     steps:
       # 1. Descargar el código del repositorio
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       
       # 2. Configurar Python
       - name: Configurar Python
-        uses: actions/setup-python@v3
+        uses: actions/setup-python@v5
         with:
           python-version: '3.x'
       
@@ -35,15 +35,17 @@ jobs:
       
       # 6. Subir el CSV al repositorio (si hay cambios)
       - name: Guardar resultados en el repo
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git add resultados.csv
           git commit -m 'Actualizar datos de scraping' || echo "Sin cambios nuevos"
-          git push
+          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
       
-      # 7. Guardar como Artifact (descarga temporal)
+      # 7. Guardar como Artifact (descarga temporal) - ✅ ACTUALIZADO A V4
       - name: Subir Artifact
-        uses: actions/upload-artifact@v3
-        if: always()  # Se ejecuta incluso si hay errores
+        uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: resultados-scraper-${{ github.run_number }}
           path: resultados.csv
