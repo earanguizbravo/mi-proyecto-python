@@ -2,23 +2,49 @@ name: Scraper Diario
 
 on:
   schedule:
-    - cron: '0 9 * * *' # Cada día a las 9 AM UTC
-  workflow_dispatch:    # Permite ejecutarlo manualmente desde la web
+    - cron: '0 9 * * *'    # Ejecuta todos los días a las 9:00 AM (hora UTC)
+  workflow_dispatch:       # Permite ejecución manual desde la interfaz de GitHub
 
 jobs:
   scraping:
     runs-on: ubuntu-latest
+    
     steps:
+      # 1. Descargar el código del repositorio
       - uses: actions/checkout@v3
       
+      # 2. Configurar Python
       - name: Configurar Python
         uses: actions/setup-python@v3
         with:
           python-version: '3.x'
       
+      # 3. Instalar las librerías necesarias
       - name: Instalar librerías
-        run: |
-          pip install -r requirements.txt
+        run: pip install -r requirements.txt
       
+      # 4. Ejecutar el script de scraping
       - name: Ejecutar Scraping
         run: python main.py
+      
+      # 5. Configurar Git para guardar los cambios
+      - name: Configurar Git
+        run: |
+          git config --global user.name 'github-actions'
+          git config --global user.email 'github-actions@github.com'
+      
+      # 6. Subir el CSV al repositorio (si hay cambios)
+      - name: Guardar resultados en el repo
+        run: |
+          git add resultados.csv
+          git commit -m 'Actualizar datos de scraping' || echo "Sin cambios nuevos"
+          git push
+      
+      # 7. Guardar como Artifact (descarga temporal)
+      - name: Subir Artifact
+        uses: actions/upload-artifact@v3
+        if: always()  # Se ejecuta incluso si hay errores
+        with:
+          name: resultados-scraper-${{ github.run_number }}
+          path: resultados.csv
+          retention-days: 30
