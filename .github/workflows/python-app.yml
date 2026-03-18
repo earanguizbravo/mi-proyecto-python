@@ -1,21 +1,24 @@
-name: Ejecutar Python
+name: Scraper Diario
 
 on:
-  push:
-    branches: [ "main" ] # Se ejecutará cada vez que subas cambios a la rama main
+  schedule:
+    - cron: '0 9 * * *' # Cada día a las 9 AM UTC
+  workflow_dispatch:    # Permite ejecutarlo manualmente desde la web
 
 jobs:
-  build:
-    runs-on: ubuntu-latest # Usa un servidor Linux de GitHub
-
+  scraping:
+    runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v3 # Descarga tu código al servidor
-
-    - name: Configurar Python
-      uses: actions/setup-python@v3
-      with:
-        python-version: '3.x' # Usa la versión más reciente de Python
-
-    - name: Ejecutar mi script
-      run: |
-        python main.py
+      - uses: actions/checkout@v3
+      
+      - name: Configurar Python
+        uses: actions/setup-python@v3
+        with:
+          python-version: '3.x'
+      
+      - name: Instalar librerías
+        run: |
+          pip install -r requirements.txt
+      
+      - name: Ejecutar Scraping
+        run: python main.py
