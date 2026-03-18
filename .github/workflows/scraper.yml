@@ -5,9 +5,13 @@ on:
     - cron: '0 9 * * *'
   workflow_dispatch:
 
-# 👇 AGREGA ESTO: Optar por Node.js 24 para todas las acciones
+# Optar por Node.js 24 para evitar deprecaciones futuras
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+# 👇 AGREGAR ESTO: Permisos explícitos para que el token funcione
+permissions:
+  contents: write
 
 jobs:
   scraping:
@@ -15,6 +19,8 @@ jobs:
     
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 👈 Importante para evitar conflictos de historial
       
       - name: Configurar Python
         uses: actions/setup-python@v5
@@ -27,18 +33,27 @@ jobs:
       - name: Ejecutar Scraping
         run: python main.py
       
-      - name: Configurar Git
-        run: |
-          git config --global user.name 'github-actions'
-          git config --global user.email 'github-actions@github.com'
-      
       - name: Guardar resultados en el repo
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git add resultados.csv
-          git commit -m 'Actualizar datos de scraping' || echo "Sin cambios nuevos"
-          git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          # Verificar que el archivo existe antes de intentar subirlo
+          if [ -f resultados.csv ]; then
+            git config --global user.name 'github-actions[bot]'
+            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            
+            # Pull por si hubo cambios concurrentes
+            git pull origin main --rebase || true
+            
+            git add resultados.csv
+            git commit -m '🤖 Actualizar datos de scraping [skip ci]' || echo "⚠️ Sin cambios nuevos"
+            
+            # Push con token explícito en la URL
+            git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          else
+            echo "⚠️ El archivo resultados.csv no fue generado. Revisa main.py"
+            exit 1
+          fi
       
       - name: Subir Artifact
         uses: actions/upload-artifact@v4
