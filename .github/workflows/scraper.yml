@@ -2,14 +2,14 @@ name: Scraper Diario
 
 on:
   schedule:
-    - cron: '0 9 * * *'
-  workflow_dispatch:
+    - cron: '0 9 * * *'        # Todos los días a las 9:00 AM UTC
+  workflow_dispatch:           # Permite ejecución manual desde la UI
 
 # Optar por Node.js 24 para evitar deprecaciones futuras
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
-# 👇 AGREGAR ESTO: Permisos explícitos para que el token funcione
+# Permisos explícitos para que el token pueda hacer push al repo
 permissions:
   contents: write
 
@@ -18,47 +18,65 @@ jobs:
     runs-on: ubuntu-latest
     
     steps:
+      # 1️⃣ Descargar el código del repositorio
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 👈 Importante para evitar conflictos de historial
-      
+          fetch-depth: 0  # Historial completo para evitar conflictos de push
+
+      # 2️⃣ Configurar Python
       - name: Configurar Python
         uses: actions/setup-python@v5
         with:
-          python-version: '3.x'
-      
+          python-version: '3.11'  # Versión estable y compatible
+
+      # 3️⃣ Instalar dependencias
       - name: Instalar librerías
         run: pip install -r requirements.txt
-      
+
+      # 4️⃣ Ejecutar el scraping (con variables de entorno para Telegram)
       - name: Ejecutar Scraping
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_RUN_NUMBER: ${{ github.run_number }}
         run: python main.py
-      
+
+      # 5️⃣ Configurar Git para subir resultados
+      - name: Configurar Git
+        run: |
+          git config --global user.name 'github-actions[bot]'
+          git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+
+      # 6️⃣ Subir CSV al repositorio (si existe y hay cambios)
       - name: Guardar resultados en el repo
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Verificar que el archivo existe antes de intentar subirlo
           if [ -f resultados.csv ]; then
-            git config --global user.name 'github-actions[bot]'
-            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
+            echo "📁 Archivo encontrado, preparando commit..."
             
-            # Pull por si hubo cambios concurrentes
+            # Sincronizar por si hubo cambios concurrentes
             git pull origin main --rebase || true
             
             git add resultados.csv
-            git commit -m '🤖 Actualizar datos de scraping [skip ci]' || echo "⚠️ Sin cambios nuevos"
+            git commit -m '🤖 Actualizar scraping [skip ci]' || echo "⚠️ Sin cambios nuevos"
             
             # Push con token explícito en la URL
             git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+            
+            echo "✅ CSV actualizado en el repositorio"
           else
-            echo "⚠️ El archivo resultados.csv no fue generado. Revisa main.py"
+            echo "❌ Error: resultados.csv no fue generado"
             exit 1
           fi
-      
+
+      # 7️⃣ Subir como Artifact para descarga manual (opcional)
       - name: Subir Artifact
         uses: actions/upload-artifact@v4
-        if: always()
+        if: always()  # Se ejecuta incluso si hay errores
         with:
           name: resultados-scraper-${{ github.run_number }}
           path: resultados.csv
           retention-days: 30
+          compression-level: 6
